@@ -3,6 +3,8 @@ Utility functions related to the djstripe app.
 """
 
 import datetime
+import warnings
+from typing import Optional
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -19,9 +21,11 @@ ANONYMOUS_USER_ERROR_MSG = (
 )
 
 
-def subscriber_has_active_subscription(subscriber, plan=None):
+def subscriber_has_active_subscription(subscriber, price=None, plan=None):
     """
     Helper function to check if a subscriber has an active subscription.
+
+    Throws TypeError if both price and plan are defined.
 
     Throws improperlyConfigured if the subscriber is an instance of AUTH_USER_MODEL
     and get_user_model().is_anonymous == True.
@@ -34,15 +38,29 @@ def subscriber_has_active_subscription(subscriber, plan=None):
         * user.is_superuser
         * user.is_staff
 
+    If price and plan are None and there exists only one subscription, this method will
+    check if that subscription is active. Calling this method with no price, no plan and
+    multiple subscriptions will throw an exception.
+
     :param subscriber: The subscriber for which to check for an active subscription.
     :type subscriber: dj-stripe subscriber
+    :param price: The price for which to check for an active subscription.
+    :type price: Price or string (price ID)
     :param plan: The plan for which to check for an active subscription.
-        If plan is None and there exists only one subscription, this method will
-        check if that subscription is active. Calling this method with no plan and
-        multiple subscriptions will throw an exception.
     :type plan: Plan or string (plan ID)
-
     """
+
+    if plan:
+        warnings.warn(
+            "the plan parameter is deprecated in favor or the price parameter and "
+            "will be removed in a future release",
+            DeprecationWarning,
+        )
+
+    if price and plan:
+        raise TypeError("price and plan arguments cannot both be defined.")
+    price = price or plan
+
     try:
         if subscriber.is_anonymous:
             raise ImproperlyConfigured(ANONYMOUS_USER_ERROR_MSG)
@@ -55,7 +73,7 @@ def subscriber_has_active_subscription(subscriber, plan=None):
     from .models import Customer
 
     customer, created = Customer.get_or_create(subscriber)
-    if created or not customer.has_active_subscription(plan):
+    if created or not customer.has_active_subscription(price):
         return False
     return True
 
@@ -87,11 +105,9 @@ def clear_expired_idempotency_keys():
     IdempotencyKey.objects.filter(created__lt=threshold).delete()
 
 
-def convert_tstamp(response):
+def convert_tstamp(response) -> Optional[datetime.datetime]:
     """
     Convert a Stripe API timestamp response (unix epoch) to a native datetime.
-
-    :rtype: datetime
     """
     if response is None:
         # Allow passing None to convert_tstamp()
@@ -107,7 +123,7 @@ def convert_tstamp(response):
 CURRENCY_SIGILS = {"CAD": "$", "EUR": "€", "GBP": "£", "USD": "$"}
 
 
-def get_friendly_currency_amount(amount, currency):
+def get_friendly_currency_amount(amount, currency: str) -> str:
     currency = currency.upper()
     sigil = CURRENCY_SIGILS.get(currency, "")
     return "{sigil}{amount:.2f} {currency}".format(

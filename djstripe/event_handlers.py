@@ -123,6 +123,16 @@ def customer_subscription_webhook_handler(event):
     )
 
 
+@webhooks.handler("customer.tax_id")
+def customer_tax_id_webhook_handler(event):
+    """
+    Handle updates to customer tax ID objects.
+    """
+    _handle_crud_like_event(
+        target_cls=models.TaxId, event=event, crud_type=CrudType.determine(event=event)
+    )
+
+
 @webhooks.handler("payment_method")
 def payment_method_handler(event):
     """
@@ -159,6 +169,7 @@ def payment_method_handler(event):
     "invoiceitem",
     "payment_intent",
     "plan",
+    "price",
     "product",
     "price",
     "setup_intent",
@@ -178,6 +189,7 @@ def other_object_webhook_handler(event):
     - invoiceitem: https://stripe.com/docs/api/invoiceitems
     - payment_intent: https://stripe.com/docs/api/payment_intents
     - plan: https://stripe.com/docs/api/plans
+    - price: https://stripe.com/docs/api/prices
     - product: https://stripe.com/docs/api/products
     - product: https://stripe.com/docs/api/prices
     - setup_intent: https://stripe.com/docs/api/setup_intents
@@ -198,6 +210,7 @@ def other_object_webhook_handler(event):
             "invoiceitem": models.InvoiceItem,
             "payment_intent": models.PaymentIntent,
             "plan": models.Plan,
+            "price": models.Price,
             "product": models.Product,
             "price": models.Price,
             "transfer": models.Transfer,
